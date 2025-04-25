@@ -31,30 +31,76 @@ function migrate($pdo, $migration_name, $query) {
     }
 }
 
-// Ejecutar migración para la tabla 'clientes'
-$migration_name = "2025_04_25_create_clientes_table";
-$migration_query = "
-CREATE TABLE IF NOT EXISTS clientes (
-    id_cliente INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    email VARCHAR(100),
-    telefono VARCHAR(50),
-    direccion TEXT,
-    tipo ENUM('consorcio', 'general') NOT NULL DEFAULT 'general', -- Tipo de cliente
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-";
-migrate($pdo, $migration_name, $migration_query);
+// Migraciones para las tablas relacionadas con clientes y consorcios
+$migrations = [
+    "2025_04_25_create_clientes_table" => "
+        CREATE TABLE IF NOT EXISTS clientes (
+            id_cliente INT AUTO_INCREMENT PRIMARY KEY,
+            nombre VARCHAR(100) NOT NULL,
+            email VARCHAR(100),
+            telefono VARCHAR(50),
+            direccion TEXT,
+            tipo ENUM('consorcio', 'general') NOT NULL DEFAULT 'general',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ",
+    "2025_04_25_create_consorcios_table" => "
+        CREATE TABLE IF NOT EXISTS consorcios (
+            id_consorcio INT AUTO_INCREMENT PRIMARY KEY,
+            id_cliente INT NOT NULL,
+            cuenta_bancaria VARCHAR(100),
+            FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ",
+    // Migraciones para usuarios, roles, permisos y registro de actividades
+    "2025_04_25_create_roles_table" => "
+        CREATE TABLE IF NOT EXISTS roles (
+            id_rol INT AUTO_INCREMENT PRIMARY KEY,
+            nombre VARCHAR(50) NOT NULL UNIQUE,
+            descripcion TEXT
+        )
+    ",
+    "2025_04_25_create_permisos_table" => "
+        CREATE TABLE IF NOT EXISTS permisos (
+            id_permiso INT AUTO_INCREMENT PRIMARY KEY,
+            nombre VARCHAR(50) NOT NULL UNIQUE,
+            descripcion TEXT
+        )
+    ",
+    "2025_04_25_create_rol_permisos_table" => "
+        CREATE TABLE IF NOT EXISTS rol_permisos (
+            id_rol INT NOT NULL,
+            id_permiso INT NOT NULL,
+            PRIMARY KEY (id_rol, id_permiso),
+            FOREIGN KEY (id_rol) REFERENCES roles(id_rol) ON DELETE CASCADE,
+            FOREIGN KEY (id_permiso) REFERENCES permisos(id_permiso) ON DELETE CASCADE
+        )
+    ",
+    "2025_04_25_create_usuarios_table" => "
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+            nombre VARCHAR(100) NOT NULL,
+            email VARCHAR(100) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            id_rol INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (id_rol) REFERENCES roles(id_rol) ON DELETE CASCADE
+        )
+    ",
+    "2025_04_25_create_registro_actividades_table" => "
+        CREATE TABLE IF NOT EXISTS registro_actividades (
+            id_registro INT AUTO_INCREMENT PRIMARY KEY,
+            id_usuario INT NOT NULL,
+            actividad TEXT NOT NULL,
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE
+        )
+    "
+];
 
-// Ejecutar migración para la tabla 'consorcios'
-$migration_name = "2025_04_25_create_consorcios_table";
-$migration_query = "
-CREATE TABLE IF NOT EXISTS consorcios (
-    id_consorcio INT AUTO_INCREMENT PRIMARY KEY,
-    id_cliente INT NOT NULL, -- Relación con la tabla 'clientes'
-    cuenta_bancaria VARCHAR(100),
-    FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-";
-migrate($pdo, $migration_name, $migration_query);
+// Ejecutar todas las migraciones
+foreach ($migrations as $migration_name => $migration_query) {
+    migrate($pdo, $migration_name, $migration_query);
+}
